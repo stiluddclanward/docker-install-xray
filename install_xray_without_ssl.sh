@@ -1,9 +1,60 @@
 #!/bin/bash
+#
+# Copyright 2018 The Outline Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
-# Requires curl  to be installed
+# Script to install the Outline Server docker container, a watchtower docker container
+# (to automatically update the server), and to create a new Outline user.
+
+# You may set the following environment variables, overriding their defaults:
+# SB_IMAGE: The Outline Server Docker image to install, e.g. quay.io/outline/shadowbox:nightly
+# CONTAINER_NAME: Docker instance name for shadowbox (default shadowbox).
+#     For multiple instances also change SHADOWBOX_DIR to an other location
+#     e.g. CONTAINER_NAME=shadowbox-inst1 SHADOWBOX_DIR=/opt/outline/inst1
+# SHADOWBOX_DIR: Directory for persistent Outline Server state.
+# ACCESS_CONFIG: The location of the access config text file.
+# SB_DEFAULT_SERVER_NAME: Default name for this server, e.g. "Outline server New York".
+#     This name will be used for the server until the admins updates the name
+#     via the REST API.
+# SENTRY_LOG_FILE: File for writing logs which may be reported to Sentry, in case
+#     of an install error. No PII should be written to this file. Intended to be set
+#     only by do_install_server.sh.
+# WATCHTOWER_REFRESH_SECONDS: refresh interval in seconds to check for updates,
+#     defaults to 3600.
+#
+# Deprecated:
+# SB_PUBLIC_IP: Use the --hostname flag instead
+# SB_API_PORT: Use the --api-port flag instead
+
+# Requires curl and docker to be installed
 
 set -euo pipefail
 #CONTAINER_NAME=xray
+red='\033[0;31m'
+green='\033[0;32m'
+yellow='\033[0;33m'
+blue='\033[0;34m'
+magenta='\033[0;35m'
+cyan='\033[0;36m'
+clear='\033[0m'
+bg_red='\033[0;41m'
+bg_green='\033[0;42m'
+bg_yellow='\033[0;43m'
+bg_blue='\033[0;44m'
+bg_magenta='\033[0;45m'
+bg_cyan='\033[0;46m'
+
 function display_usage() {
   cat <<EOF
 Usage: install_server.sh [--hostname <hostname>] [--api-port <port>] [--keys-port <port>]
@@ -16,6 +67,11 @@ EOF
 
 readonly SENTRY_LOG_FILE=${SENTRY_LOG_FILE:-}
 
+# I/O conventions for this script:
+# - Ordinary status messages are printed to STDOUT
+# - STDERR is only used in the event of a fatal error
+# - Detailed logs are recorded to this FULL_LOG, which is preserved if an error occurred.
+# - The most recent error is stored in LAST_ERROR, which is never preserved.
 FULL_LOG="$(mktemp -t xray_logXXX)"
 LAST_ERROR="$(mktemp -t xray_last_errorXXX)"
 readonly FULL_LOG LAST_ERROR
@@ -47,6 +103,9 @@ function log_start_step() {
   echo -n " "
 }
 
+# Prints $1 as the step name and runs the remainder as a command.
+# STDOUT will be forwarded.  STDERR will be logged silently, and
+# revealed only in the event of a fatal error.
 function run_step() {
   local -r msg="$1"
   log_start_step "${msg}"
@@ -114,6 +173,9 @@ function fetch() {
 
 function install_docker() {
   (
+    # Change umask so that /usr/share/keyrings/docker-archive-keyring.gpg has the right permissions.
+    # See https://github.com/Jigsaw-Code/outline-server/issues/951.
+    # We do this in a subprocess so the umask for the calling process is unaffected.
     umask 0022
     fetch https://get.docker.com/ | sh
   ) >&2
@@ -181,6 +243,11 @@ function get_random_port {
   echo "${num}";
 }
 
+function get_ip {
+    ip=$(curl -k -4 https://ipinfo.io/ip 2>/dev/null);
+    echo "${ip}";
+}
+
 function join() {
   local IFS="$1"
   shift
@@ -218,7 +285,7 @@ fi
 cat > /etc/xray/config.json <<EOF
 {
   "inbounds": [{
-    "port": 9000,
+    "port": "9000",
     "protocol": "vmess",
     "settings": {
       "clients": [
@@ -260,11 +327,29 @@ install_xray() {
  
 } # end of install_shadowbox
 
-
+function message {
+cat > /etc/xray/output.log <<EOF
+{"v":2,"ps":"zzh-tcp-ipaddress","add":"ipaddress","port":"rundomport","id":"clientid","aid":"0","net":"tcp","type":"none","path":""}
+EOF
+ipaddress=$(get_ip)
+clientid=$(grep -Po '"id": *\K"[^"]*"' /etc/xray/config.json|awk -F "\"" '{print $2}')
+port=$(grep -Po '"port": *\K"[^"]*"' /etc/xray/config.json|awk -F "\"" '{print $2}')
+protocol=$(grep -Po '"protocol": *\K"[^"]*"' /etc/xray/config.json|awk -F "\"" '{print $2}'|head -1)
+sed -i "s/ipaddress/$ipaddress/g" /etc/xray/output.log
+sed -i "s/clientid/$clientid/g" /etc/xray/output.log
+sed -i "s/rundomport/$port/g" /etc/xray/output.log
+connstr=$(cat /etc/xray/output.log|base64 -w0)
+echo -e "Xray使用协议: ${green}$protocol${clear}"
+echo -e "Xray连接的IP: ${green}$ipaddress${clear}"
+echo -e "Xray连接端口: ${green}$port${clear}"
+echo -e "Xray客户端id: ${green}$clientid${clear}"
+echo -e "Xray连接地址: ${green}$protocol://$connstr${clear}"
+}
 
 
 function main() {
   install_xray
+  message
 }
 
 main "$@"
