@@ -1,8 +1,8 @@
 # docker-install-xray
 一键安装xray到docker容器，自动生成配置文件。配合容器技术，安装和卸载简单，并且卸载的干净。
 # 前置条件
-已安装curl命令
-操作系统支持Docker的安装
+* 已安装curl命令
+* 操作系统支持Docker的安装
 
 # 一键安装步骤
 ```
