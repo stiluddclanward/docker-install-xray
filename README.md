@@ -18,8 +18,7 @@ bash <(curl -sL https://github.com/stiluddclanward/docker-install-xray/raw/main/
 
 #卸载
 ```
-docker rm -f xray
-rm -rf /etc/xray
+docker rm -f xray && rm -rf /etc/xray
 ```
 
 
