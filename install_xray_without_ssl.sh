@@ -1,44 +1,8 @@
 #!/bin/bash
-#
-# Copyright 2018 The Outline Authors
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#      http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
-# Script to install the Outline Server docker container, a watchtower docker container
-# (to automatically update the server), and to create a new Outline user.
-
-# You may set the following environment variables, overriding their defaults:
-# SB_IMAGE: The Outline Server Docker image to install, e.g. quay.io/outline/shadowbox:nightly
-# CONTAINER_NAME: Docker instance name for shadowbox (default shadowbox).
-#     For multiple instances also change SHADOWBOX_DIR to an other location
-#     e.g. CONTAINER_NAME=shadowbox-inst1 SHADOWBOX_DIR=/opt/outline/inst1
-# SHADOWBOX_DIR: Directory for persistent Outline Server state.
-# ACCESS_CONFIG: The location of the access config text file.
-# SB_DEFAULT_SERVER_NAME: Default name for this server, e.g. "Outline server New York".
-#     This name will be used for the server until the admins updates the name
-#     via the REST API.
-# SENTRY_LOG_FILE: File for writing logs which may be reported to Sentry, in case
-#     of an install error. No PII should be written to this file. Intended to be set
-#     only by do_install_server.sh.
-# WATCHTOWER_REFRESH_SECONDS: refresh interval in seconds to check for updates,
-#     defaults to 3600.
-#
-# Deprecated:
-# SB_PUBLIC_IP: Use the --hostname flag instead
-# SB_API_PORT: Use the --api-port flag instead
-
-# Requires curl and docker to be installed
-
+# Author：zzh
+# Copyright 2023 The Docker install xray Authors
+# CONTAINER_NAME: Docker instance name for xray (default xray).
+# Requires curl  installed
 set -euo pipefail
 #CONTAINER_NAME=xray
 red='\033[0;31m'
@@ -54,16 +18,6 @@ bg_yellow='\033[0;43m'
 bg_blue='\033[0;44m'
 bg_magenta='\033[0;45m'
 bg_cyan='\033[0;46m'
-
-function display_usage() {
-  cat <<EOF
-Usage: install_server.sh [--hostname <hostname>] [--api-port <port>] [--keys-port <port>]
-
-  --hostname   The hostname to be used to access the management API and access keys
-  --api-port   The port number for the management API
-  --keys-port  The port number for the access keys
-EOF
-}
 
 readonly SENTRY_LOG_FILE=${SENTRY_LOG_FILE:-}
 
