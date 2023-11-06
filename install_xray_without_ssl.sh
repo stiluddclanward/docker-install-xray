@@ -202,6 +202,21 @@ function get_ip {
     echo "${ip}";
 }
 
+function get_uuid {
+    uuid=$(curl -L uuid.dev 2>/dev/null);
+    echo "${uuid}";
+}
+
+function try_stop_firewalld()
+{
+if [ $(command -v yum) ];then 
+   systemctl stop firewalld  2>&1 >/dev/null
+   systemctl disable firewalld	2>&1 >/dev/null
+else
+   ufw disable 2>&1 >/dev/null
+fi
+}
+
 function join() {
   local IFS="$1"
   shift
@@ -244,7 +259,7 @@ cat > /etc/xray/config.json <<EOF
     "settings": {
       "clients": [
         {
-          "id": "1eb6e917-774b-4a84-aff6-b058577c60a5"
+          "id": "uuid"
         }
       ]
     }
@@ -256,7 +271,9 @@ cat > /etc/xray/config.json <<EOF
 }
 EOF
 config_port=$(get_random_port)
+clientid=$(get_uuid)
 sed -i "s/9000/$config_port/g" /etc/xray/config.json
+sed -i "s/uuid/$clientid/g" /etc/xray/config.json
 }
 
 
@@ -304,6 +321,7 @@ echo -e "Xray连接地址: ${green}$protocol://$connstr${clear}"
 function main() {
   install_xray
   message
+  try_stop_firewalld
 }
 
 main "$@"
